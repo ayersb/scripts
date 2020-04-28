@@ -1,0 +1,25 @@
+#!/bin/bash
+forceArg=$1
+if [ "$forceArg" == "-9" ]; then
+    pattern="${@:2}"
+else
+    forceArg=""
+    pattern="$@"
+fi
+
+selected_process=$(ps aux |  grep -v "$0" | grep -v "fzf" | awk '{$3=$4=$5=$6=$7=$8=$9=$10=""; print $0}' | fzf -q "$pattern" +s -e --tac) || exit 1
+
+selected_user=$(echo "$selected_process" | awk '{print $1}')
+selected_pid=$(echo "$selected_process" | awk '{print $2}')
+
+dosudo=""
+if [ "$selected_user" == "root" ] && [ "$(whoami)" != "root"  ]; then
+    echo "Trying to kill a proccess owned by root, using sudo..."
+    dosudo="sudo"
+fi
+
+if [ -n "$forceArg" ]; then
+    $dosudo kill -9 "$selected_pid"
+else
+    $dosudo kill "$selected_pid"
+fi

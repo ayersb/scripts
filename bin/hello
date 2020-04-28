@@ -1,0 +1,18 @@
+#!python3
+# curl 'https://www.dropbox.com/s/j94kq2kza8tswyh/hello?dl=0'
+import webbrowser
+from sys import argv
+
+kitties = "https://www.reddit.com/r/CatsStandingUp"
+puppers = "https://www.reddit.com/r/rarepuppers"
+
+aminal_type = argv[-1]
+kittie = "kittie"
+pupper = "pupper"
+
+if aminal_type == kittie:
+    webbrowser.open(kitties)
+elif aminal_type == pupper:
+    webbrowser.open(puppers)
+else:
+    print("Useage: $hello (kittie|pupper)")

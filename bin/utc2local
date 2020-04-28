@@ -1,0 +1,35 @@
+#! python3
+import re
+import sys
+from datetime import datetime
+
+from dateutil import tz
+
+date_str = sys.argv[1]
+if not date_str:
+    raise Exception("No arguments given. First arg must be a date string")
+
+extract_regexs = [r"(.*)\+.*", r"(.*)\s+UT*C*", r"(.*)\.000Z"]
+
+for regex in extract_regexs:
+    match = re.match(regex, date_str)
+    if match:
+        date_str = "".join(match.groups())
+
+patterns = ["%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S"]
+dt = None
+for pattern in patterns:
+    try:
+        dt = datetime.strptime(date_str, pattern)
+        dt = dt.replace(tzinfo=tz.tzutc())
+        break
+    except Exception:
+        dt = None
+        continue
+
+if not dt:
+    raise Exception("Couldn't match the input date pattern!")
+
+dt_local = dt.astimezone(tz.tzlocal())
+dt_local_pretty = dt_local.strftime("%Y-%m-%d %I:%M:%S %p")
+print(dt_local_pretty)
