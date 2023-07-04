@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+
+# Stupid script to make it easy to look through any array
+# of outputs from a json file and filter it with rg
+cat | jq -c '.[]' | rg --no-line-number "$@" | jq --slurp
+
+

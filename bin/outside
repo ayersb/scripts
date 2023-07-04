@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+
+if [ -f "/tmp/working-outside.txt" ]; then
+  CURRENT_VALUE=$(cat /tmp/working-outside.txt)
+fi
+if [ -n "$1" ]; then
+  VALUE="$1"
+else
+  VALUE="$CURRENT_VALUE"
+fi
+
+if [ "$VALUE" = 'true' ] || [ "$VALUE" = 'on' ]; then
+  echo "Turning on outside mode"
+  echo "true" > /tmp/working-outside.txt
+  sed -i "" -e 's/export OUTSIDE=.*/export OUTSIDE=true/' ~/.zshenv
+  tmux set window-style 'fg=black,bg=colour146'
+  tmux set window-active-style 'fg=black,bg=colour255'
+  osascript -e 'tell app "System Events" to tell appearance preferences to set dark mode to false'
+else
+  echo "Turning off outside mode"
+  echo "false" > /tmp/working-outside.txt
+  sed -i "" -e 's/export OUTSIDE=.*/export OUTSIDE=false/' ~/.zshenv
+  tmux set window-style 'fg=colour250,bg=colour235'
+  tmux set window-active-style 'fg=colour252,bg=black'
+  osascript -e 'tell app "System Events" to tell appearance preferences to set dark mode to true'
+# 231
+fi

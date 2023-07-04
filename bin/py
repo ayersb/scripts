@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -e 
+
+path_to_script="$HOME/Dropbox/ComputerSettings/scripts/bootstrapping/sandbox.py"
+if [ -z "$1" ]; then
+  ipython3 -i "$path_to_script"
+else
+  ipython3 "$@"
+fi

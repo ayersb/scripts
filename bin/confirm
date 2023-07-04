@@ -1,0 +1,19 @@
+#!/bin/bash
+B="\033[1;92m"
+G="\033[1;96m"
+Y="\033[0;33m"
+E="\033[1;0m"
+set -eu -o pipefail
+if [ -z "$1" ]; then
+    echo "A command is required" && exit 1
+fi;
+cmd=$@
+while true; do
+    printf "Run: ${G}'$cmd'${E}?:  "
+    read yn
+    case $yn in
+        [Yy]* ) $cmd; break;;
+        [Nn]* ) exit 42;;
+        * ) echo -e "${Y}Please answer: ${E}[${G}y${E}]es or [${B}n${E}]o.${E}\n";;
+    esac
+done

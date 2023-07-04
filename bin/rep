@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+trap 'exit $last_status' EXIT
+
+B="\033[0;96m"
+R="\033[1;31m"
+E="\033[1;0m"
+
+while true; do
+  if [ -n "$TELLME" ]; then
+    set -x
+  else
+    TELLME='more'
+  fi
+  "$@"
+  { set +x; } 2>/dev/null
+  last_status=$?
+  echo ""
+  echo ""
+  if [ "$last_status" -eq 0 ]; then
+    color="$B"
+  else
+    color="$R"
+  fi
+  echo -n -e "${color}Run again?${E}"
+  read -r  AGAIN
+done
+

@@ -1,0 +1,166 @@
+#!python3
+from datetime import datetime, time, timedelta, date as ddate
+from dataclasses import dataclass
+import json
+import os
+import argparse
+from functools import reduce
+from typing import cast
+
+# Colors are pretty
+RED = "\u001b[31m"
+GREEN = "\u001b[32m"
+MAG = "\u001b[35;3m"
+CYAN = "\u001b[36;3m"
+YELLOW = "\u001b[93;2m"
+BLUE = "\u001b[94;2m"
+RESET = "\u001b[0m"
+
+STATE_IN = f"{GREEN}IN {RESET}"
+STATE_OUT = f"{RED}OUT{RESET}"
+
+parser = argparse.ArgumentParser("Timeclock")
+
+parser.add_argument("action", choices=["in", "out", "show", "adj"])
+parser.add_argument("--minutes", "-m", "-mi", type=int, default=0)
+parser.add_argument("--hours", "-ho", type=int, default=0)
+records_dir = "/Users/brandon.ayers/Dropbox/work/timeclock"
+TODAY_CLOCK = f"{records_dir}/todayclock.json"
+RECORDS = f"{records_dir}/timeclock_records.json"
+
+
+def time_deser(x: list[str | None]) -> tuple[datetime, datetime | None]:
+    if x[0] is None:
+        raise RuntimeError("something is wrong")
+    if x[1] is None:
+        return (datetime.fromisoformat(x[0]), None)
+    return (datetime.fromisoformat(x[0]), datetime.fromisoformat(x[1]))
+
+
+@dataclass
+class DayRecord:
+    date: ddate
+    times: list[tuple[datetime, datetime | None]]
+    adjust_minutes: int = 0
+
+    def __init__(self):
+        self.date = ddate.today()
+        self.times = []
+        if not os.path.isfile(TODAY_CLOCK):
+            return
+
+        cached = json.load(open(TODAY_CLOCK, "r"))
+        if cached["date"] != str(self.date):
+            records = open(RECORDS, "+a")
+            json.dump(cached, records)
+            records.write("\n")
+            records.close()
+            return
+        self.adjust_minutes = cached["adjust_minutes"]
+        self.times = [time_deser(x) for x in cached["times"]]
+        self._i = -1
+
+    def serialize(self):
+        return dict(
+            date=str(self.date),
+            adjust_minutes=self.adjust_minutes,
+            times=[[str(x[0]), str(x[1]) if x[1] else None] for x in self.times],
+        )
+
+    def adjust(self, minutes: int = 0, hours: int = 0):
+        self.adjust_minutes += minutes + hours * 60
+        self.write()
+
+    def clock_state(self):
+        if self.times[self._i][1] is None:
+            return STATE_IN
+        return STATE_OUT
+
+    def write(self):
+        json.dump(self.serialize(), open(TODAY_CLOCK, "w"))
+
+    def clock_in(self):
+        if self.times and self.times[self._i][1] is None:
+            # Already clocked in
+            # print
+            return
+        self.times.append((datetime.now(), None))
+        self.write()
+
+    def clock_out(self):
+        if self.times and self.times[self._i][1] is None:
+            self.times[self._i] = (self.times[self._i][0], datetime.now())
+        self.write()
+
+    def get_clock(self, state=None):
+        if not self.times:
+            return None
+        if state is None:
+            state = self.clock_state()
+        if state == STATE_IN:
+            return self.times[self._i][0]
+        elif state == STATE_OUT:
+            return self.times[self._i][1]
+
+    def get_time(self):
+        if not self.times:
+            return timedelta(0)
+        times, latest = self.times[: self._i], self.times[self._i]
+        if latest[1] is None:
+            latest = (latest[0], datetime.now())
+        times.append(latest)
+        delta = map(lambda t: t[1] - t[0], times)
+        return reduce(
+            lambda a, b: a + b, delta, timedelta(seconds=self.adjust_minutes * 60)
+        )
+
+    def print_time(self, i=-1, include_in_with_out=False):
+        self._i = i
+        d = str(self.date)
+        s = self.clock_state()
+
+        t = str(self.get_time()).split(".")[0]
+        clock_in = self.get_clock(state=STATE_IN)
+        clock_out = self.get_clock(state=STATE_OUT)
+
+        clock_in_time = clock_in.strftime("%I:%M%p") if clock_in else "X" * 7
+        clock_out_time = clock_out.strftime("%I:%M%p") if clock_out else "X" * 7
+        clock_in_time_fmt = f"{YELLOW}{clock_in_time}{RESET}"
+        clock_out_time_fmt = f"{BLUE}{clock_out_time}{RESET}"
+
+        adj_str = ""
+        if self.adjust_minutes:
+            adjust = timedelta(seconds=self.adjust_minutes * 60)
+            sign = f"{GREEN}+"
+            if adjust <= timedelta():
+                sign = f"{MAG}-"
+                adjust *= -1
+            adj_str = f" ~ ADJ {sign}{str(adjust)}{RESET}"
+
+        t_fmt = (
+            f"{CYAN}{t}{RESET}"
+            if self.clock_state() == STATE_IN
+            else f"{CYAN}{t}{RESET}"
+        )
+        print(
+            f"{t_fmt} ~ {s} ~ {clock_in_time_fmt}->{clock_out_time_fmt} {adj_str} ~ {d}"
+        )
+        self._i = -1
+
+
+ns = parser.parse_args()
+record = DayRecord()
+
+match ns.action:
+    case "in":
+        record.clock_in()
+        record.print_time()
+    case "out":
+        record.clock_out()
+        record.print_time()
+    case "adj":
+        record.adjust(minutes=ns.minutes, hours=ns.hours)
+        record.print_time()
+    case "show":
+        for i in range(len(record.times)):
+            record.print_time(i)

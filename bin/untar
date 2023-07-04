@@ -1,0 +1,22 @@
+#!/bin/bash
+if [ -z "$1" ] || [ ! -f "$1" ]; then
+ echo "Please specify a tar file to untar" && exit 1;
+elif [ -n "$2" ]; then
+  echo "Only one file path is allowed" && exit 1;
+fi
+
+parentDir=$(dirname $1)
+newDirName=$(basename $1 | awk -F '.' '{print $1}')
+newDirPath="${parentDir}/${newDirName}"
+
+if mkdir "${newDirPath}"; then 
+  tar -xzf $1 -C $newDirPath
+else 
+  exit 1;
+fi
+contents=$(find "$newDirPath" -d 1)
+
+if [ "$(echo $contents | wc -l | tr -d ' ')" -eq 1  ] && [ "$(basename $contents)" == "$newDirName" ]; then
+  mv $newDirPath/$newDirName/** $newDirPath || exit 1
+  rm -r $newDirPath/$newDirName/ || exit 1
+fi
