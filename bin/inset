@@ -1,0 +1,59 @@
+#!python3
+import os
+from re import A
+from sys import argv, stdin
+from argparse import ArgumentParser
+import sys
+
+arg = ArgumentParser("Inset")
+arg.add_argument("set", help="Values to compare against")
+arg.add_argument("lookups", nargs="?", default=stdin, help="Values to look up")
+arg.add_argument(
+    "--sep",
+    default=None,
+    help="Separator for values default to newline for files and space for strings",
+)
+arg.add_argument(
+    "--sep-set",
+    default=None,
+    help="Separator for values default to newline for files and space for strings",
+)
+arg.add_argument(
+    "--sep-look",
+    default=None,
+    help="Separator for values default to newline for files and space for strings",
+)
+
+
+args = arg.parse_args()
+
+sep_set = args.sep_set or args.sep
+sep_look = args.sep_look or args.sep
+
+if os.path.exists(args.set):
+    with open(args.set) as f:
+        lookup_set = set(open(args.set).read().split(sep_set or "\n"))
+else:
+    lookup_set = set(args.set.split(sep_set or " "))
+
+if args.lookups == stdin:
+    if sep_look and sep_look != "\n":
+        lookups = list(filter(bool, stdin.read().replace("\n", "").split(sep_look)))
+    else:
+        lookups = list(filter(bool, stdin.read().split("\n")))
+    if not sep_look and len(lookups) == 1:
+        lookups = list(filter(bool, lookups[0].strip('').split(" ")))
+elif os.path.exists(args.lookups):
+    with open(args.lookups) as f:
+        lookups = list(filter(bool, open(args.lookups).read().split(sep_look or "\n")))
+else:
+    lookups = list(filter(bool, args.lookups.split(sep_look or " ")))
+
+found = []
+for entry in lookups:
+    if entry in lookup_set:
+        found.append(entry)
+print((args.sep or "\n").join(found))
+if not found:
+    print("No matches found", file=sys.stderr)
+    exit(1)
