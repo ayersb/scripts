@@ -2,6 +2,11 @@
 
 if [ -f "/tmp/working-outside.txt" ]; then
   CURRENT_VALUE=$(cat /tmp/working-outside.txt)
+  if [ "$CURRENT_VALUE" = 'true' ]; then
+    file="/tmp/working-outside.txt"
+    modified_time=$(stat -l $file | awk '{print $8}')
+    echo "Outside since $modified_time"
+  fi
 fi
 if [ -n "$1" ]; then
   VALUE="$1"
@@ -10,8 +15,10 @@ else
 fi
 
 if [ "$VALUE" = 'true' ] || [ "$VALUE" = 'on' ]; then
-  echo "Turning on outside mode"
-  echo "true" > /tmp/working-outside.txt
+  if [ "$CURRENT_VALUE" != 'true' ]; then
+    echo "Turning on outside mode"
+    echo "true" > /tmp/working-outside.txt
+  fi
   sed -i "" -e 's/export OUTSIDE=.*/export OUTSIDE=true/' ~/.zshenv
   tmux set window-style 'fg=black,bg=colour146'
   tmux set window-active-style 'fg=black,bg=colour255'
