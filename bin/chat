@@ -6,7 +6,7 @@ import sys
 import signal
 import os
 import tempfile
-from typing import Any
+from typing import Any, Literal
 import openai
 import json
 import subprocess
@@ -15,6 +15,7 @@ from pydub import AudioSegment
 from pydub.playback import play
 import io
 
+TTS_VOICES = Literal["alloy", "echo", "fable", "onyx", "nova", "shimmer"]
 response_history_file = response_history_file = os.path.expanduser(
     "~/scripts/chat_response_history.json"
 )
@@ -148,8 +149,24 @@ def main(prompt: str, open_response: bool = False, code: bool = False):
             response_cache.append(content)
     vim_thunk()
 
-    def stream_and_play(text):
-        client = OpenAI()
+
+def stream_and_play(text: str, voice: TTS_VOICES, save: str | None = None):
+    client = OpenAI()
+    if save:
+        save_path = os.path.abspath(os.path.expanduser(save))
+
+        if not os.path.exists(os.path.dirname(save_path)):
+            raise ValueError(f"Directory {os.path.dirname(save_path)} does not exist")
+        save_response(text)
+        response = client.audio.speech.create(
+            model="tts-1-hd",
+            voice=voice,
+            speed=1.2,
+            input=text,
+        )
+        print(f"Saving to {save_path}")
+        response.stream_to_file(save_path)
+    else:
         response = client.audio.speech.create(
             model="tts-1",
             voice="alloy",
@@ -166,16 +183,62 @@ def main(prompt: str, open_response: bool = False, code: bool = False):
         play(audio)
 
 
+def interactive_get_file():
+    """Returns the path to the chat file."""
+    temp_file = tempfile.NamedTemporaryFile(suffix=".md")
+    # use supproccess to open vim
+    res = subprocess.run(["vim", temp_file.name])
+    if res.returncode != 0:
+        sys.exit(1)
+    return open(temp_file.name).read()
+
+
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="OpenAI GPT-4 API interaction.")
-    parser.add_argument(
-        "--speak",
-        choices=["alloy", "echo", "fable", "onyx", "nova", "shimmer"],
-        help="Speak the response",
+    main_parser = argparse.ArgumentParser(description="OpenAI GPT-4 API interaction.")
+
+    interactive_parser = argparse.ArgumentParser(
+        description="OpenAI GPT-4 API interaction."
     )
-    parser.add_argument("prompt", nargs="+", help="The prompt string to send to GPT-4")
-    args = parser.parse_args()
-    if args.speak:
-        main(" ".join(args.prompt))
+    main_parser.add_argument(
+        "prompt", nargs="+", help="The prompt string to send to GPT-4"
+    )
+    for parser in [main_parser, interactive_parser]:
+        parser.add_argument(
+            "--interactive",
+            "-i",
+            action="store_true",
+            default=False,
+        )
+        parser.add_argument(
+            "--speak",
+            action="store_true",
+            default=False,
+        )
+        parser.add_argument(
+            "--voice",
+            choices=["alloy", "echo", "fable", "onyx", "nova", "shimmer"],
+            default="onyx",
+            help="Speak the response",
+        )
+        parser.add_argument(
+            "--save",
+            default=None,
+            help="Speak the response",
+        )
+    interactive_args = interactive_parser.parse_args()
+    if interactive_args.interactive:
+        args = interactive_args
+        prompt = interactive_get_file()
     else:
-        main(" ".join(args.prompt), open_response=True)
+        args = main_parser.parse_args()
+        prompt = " ".join(interactive_args.prompt)
+    if not prompt:
+        sys.exit(1)
+
+    if args.speak:
+        if prompt == "-":
+            stream_and_play(sys.stdin.read(), voice=args.voice, save=args.save)
+        else:
+            stream_and_play(prompt, voice=args.voice, save=args.save)
+    else:
+        main(prompt, open_response=True)
