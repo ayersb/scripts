@@ -183,9 +183,11 @@ def stream_and_play(text: str, voice: TTS_VOICES, save: str | None = None):
         play(audio)
 
 
-def interactive_get_file():
+def interactive_get_file(starting_text: str = ""):
     """Returns the path to the chat file."""
     temp_file = tempfile.NamedTemporaryFile(suffix=".md")
+    temp_file.write(starting_text.encode("utf-8"))
+    temp_file.flush()
     # use supproccess to open vim
     res = subprocess.run(["vim", temp_file.name])
     if res.returncode != 0:
@@ -225,13 +227,18 @@ if __name__ == "__main__":
             default=None,
             help="Speak the response",
         )
-    interactive_args = interactive_parser.parse_args()
-    if interactive_args.interactive:
-        args = interactive_args
-        prompt = interactive_get_file()
+
+    if "--interactive" in sys.argv or "-i" in sys.argv:
+        sys.argv.append(" ")
+    args = main_parser.parse_args(args=sys.argv[1:])
+    p = " ".join(args.prompt).strip()
+    if p == "-":
+        p = sys.stdin.read()
+    if args.interactive:
+        prompt = interactive_get_file(p)
     else:
-        args = main_parser.parse_args()
-        prompt = " ".join(interactive_args.prompt)
+        prompt = p
+
     if not prompt:
         sys.exit(1)
 
